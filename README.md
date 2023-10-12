@@ -19,8 +19,9 @@ Install dependencies
 pip install web3 tqdm loguru
 ```
 ## Usage
+Populate *keys.txt* with your private keys, one key of each line
 
-Specify bridging params inside **main.py**
+Specify bridging params inside *main.py*
 ```python
  FROM_CHAIN = "ethereum" 
  TO_CHAIN = "zksync" 
@@ -40,5 +41,7 @@ python main.py
 ```
 
 On the first execution, min/max limits will be fetched from [https://refuel.socket.tech/chains](https://docs.socket.tech/socket-api/v2/guides/refuel-integration) and cached for subsequent usage.
-To refresh the data, simply delete **refuel.json** file inside the project folder.
+To refresh the data, simply delete *refuel.json* file inside the project folder.
+
+Logs will be availible inside *debug.log*
 
