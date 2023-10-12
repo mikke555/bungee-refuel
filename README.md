@@ -19,7 +19,7 @@ Install dependencies
 pip install web3 tqdm loguru
 ```
 ## Usage
-Populate *keys.txt* with your private keys, one key of each line
+Populate *keys.txt* with your private keys, one key on each line
 
 Specify bridging params inside *main.py*
 ```python
