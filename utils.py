@@ -8,7 +8,12 @@ import time
 def load_shuffled_keys():
     with open("keys.txt", "r") as f:
         keys = [row.strip() for row in f]
+
+        if not keys:
+            raise ValueError("keys.txt is empty or not properly formatted")
+
         random.shuffle(keys)
+        print(f"\n>>> Wallet(s) loaded: {len(keys)}")
         return keys
 
 

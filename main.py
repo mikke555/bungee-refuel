@@ -7,14 +7,14 @@ from utils import load_shuffled_keys, get_abi, fetch_refuel_data, sleep
 from data import chain_data, bungee_contract_address, bungee_destinationChainId
 
 
-# Config | ethereum | optimism | bsc | gnosis | polygon | 
-# zksync | zkevm | base | arbitrum  | avalanche | aurora  
+# Config | ethereum | optimism | bsc | gnosis | polygon |
+# zksync | zkevm | base | arbitrum  | avalanche | aurora
 FROM_CHAIN = "ethereum"
 TO_CHAIN = "zksync"
 
 # MIN & MAX amount in native token (ETH/BNB/AVAX/MATIC etc)
-AMOUNT_FROM = 0.0012  
-AMOUNT_TO = 0.0018  
+AMOUNT_FROM = 0.0013
+AMOUNT_TO = 0.0018
 
 # Sleep between wallets in seconds
 MIN_SLEEP = 20
@@ -49,7 +49,18 @@ def get_chain_limits():
         if origin_id == chain["chainId"]:
             for limit in chain["limits"]:
                 if dest_id == limit["chainId"]:
-                    return bool(limit["isEnabled"]), int(limit["minAmount"]), int(limit["maxAmount"])
+                    is_enabled = bool(limit["isEnabled"])
+                    min_amount = int(limit["minAmount"])
+                    max_amount = int(limit["maxAmount"])
+
+                    if not is_enabled:
+                        raise ValueError("Refuel isn't supported for this route")
+
+                    print(
+                        f"{origin} => {dest} is allowed | min {web3.from_wei(min_amount, 'ether')} {token_symbol} | max {web3.from_wei(max_amount, 'ether')} {token_symbol}\n"
+                    )
+
+                    return min_amount, max_amount
 
 
 def bungee_refuel(amount, private_key):
@@ -90,18 +101,18 @@ def bungee_refuel(amount, private_key):
 def main():
     try:
         keys_list = load_shuffled_keys()
-        print(f"\nWallet(s) loaded: {len(keys_list)}")
-        is_refuel_enabled, min_amount, max_amount = get_chain_limits()
+        min_amount, max_amount = get_chain_limits()
 
-        if not is_refuel_enabled:
-            raise ValueError("Refuel isn't supported for this route")
-
-        logger.info(
-            f"{origin}  => {dest} is allowed | min {web3.from_wei(min_amount, 'ether')} {token_symbol} | max {web3.from_wei(max_amount, 'ether')} {token_symbol}\n"
-        )
+        try:
+            print("Press 'Enter' to continue or 'Ctrl + C' to exit")
+            input()
+        except KeyboardInterrupt:
+            print("\nYou pressed Ctrl + C. Exiting...")
+            return
 
         while keys_list:
             key = keys_list.pop(0)
+            logger.info(f"Wallet: {web3.eth.account.from_key(key).address}")
             amount = random.randint(web3.to_wei(AMOUNT_FROM, "ether"), web3.to_wei(AMOUNT_TO, "ether"))
 
             if amount < min_amount or amount > max_amount:
