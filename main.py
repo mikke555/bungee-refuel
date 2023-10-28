@@ -2,6 +2,7 @@ from web3 import Web3
 from web3.middleware import geth_poa_middleware
 from loguru import logger
 import random
+import csv
 
 from utils import load_shuffled_keys, get_abi, fetch_refuel_data, sleep
 from data import chain_data, bungee_contract_address, bungee_destinationChainId
@@ -12,13 +13,19 @@ from data import chain_data, bungee_contract_address, bungee_destinationChainId
 FROM_CHAIN = "ethereum"
 TO_CHAIN = "zksync"
 
-# MIN & MAX amount in native token (ETH/BNB/AVAX/MATIC etc)
+# if True will use the MIN amount allowed for selected route
+# boosted by a small percentage up to MAX_BOOST value
+USE_MIN = True
+MAX_BOOST = 3  # 3%
+
+# Otherwise, specify the amount range in native token: ETH/BNB/AVAX/MATIC etc
 AMOUNT_FROM = 0.0013
 AMOUNT_TO = 0.0018
 
 # Sleep between wallets in seconds
-MIN_SLEEP = 20
-MAX_SLEEP = 30
+MIN_SLEEP = 30
+MAX_SLEEP = 60
+
 
 logger.add(
     "debug.log",
@@ -40,6 +47,8 @@ origin = chain_data[FROM_CHAIN]["chain_name"]
 dest = chain_data[TO_CHAIN]["chain_name"]
 origin_id = chain_data[FROM_CHAIN]["chain_id"]
 dest_id = chain_data[TO_CHAIN]["chain_id"]
+
+failed_wallets = []
 
 
 def get_chain_limits():
@@ -94,7 +103,8 @@ def bungee_refuel(amount, private_key):
             raise ValueError("Tx failed")
 
     except Exception as error:
-        logger.error(f"wallet {wallet_address} | {error}\n")
+        logger.error(f"Wallet {wallet_address} | {error}\n")
+        failed_wallets.append((wallet_address, private_key, error))
         return False
 
 
@@ -113,7 +123,12 @@ def main():
         while keys_list:
             key = keys_list.pop(0)
             logger.info(f"Wallet: {web3.eth.account.from_key(key).address}")
-            amount = random.randint(web3.to_wei(AMOUNT_FROM, "ether"), web3.to_wei(AMOUNT_TO, "ether"))
+
+            if USE_MIN:
+                percentage_increase = random.randint(1, MAX_BOOST)
+                amount = int(min_amount * (1 + percentage_increase / 100))
+            else:
+                amount = random.randint(web3.to_wei(AMOUNT_FROM, "ether"), web3.to_wei(AMOUNT_TO, "ether"))
 
             if amount < min_amount or amount > max_amount:
                 raise ValueError(
@@ -127,6 +142,13 @@ def main():
 
     except Exception as error:
         logger.error(f"An error occurred: {str(error)}")
+
+    # Save the failed wallets to a CSV file
+    if failed_wallets:
+        with open("failed_wallets.csv", "w", newline="") as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow(["Address", "Private Key", "Error"])
+            writer.writerows(failed_wallets)
 
 
 if __name__ == "__main__":
