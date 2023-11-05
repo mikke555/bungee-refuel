@@ -86,7 +86,8 @@ def bungee_refuel(amount, private_key):
         if FROM_CHAIN == "bsc":
             del tx["maxFeePerGas"]
             del tx["maxPriorityFeePerGas"]
-            tx["gasPrice"] = web3.eth.gas_price
+            # set gas price to 1 gwei
+            tx["gasPrice"] = 1000000000
 
         # Sign and send the transaction
         signed_tx = web3.eth.account.sign_transaction(tx, private_key)
