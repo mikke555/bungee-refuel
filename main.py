@@ -1,52 +1,20 @@
 from web3 import Web3
 from web3.middleware import geth_poa_middleware
-from loguru import logger
+
 import random
 import csv
 
-from utils import load_shuffled_keys, get_abi, fetch_refuel_data, sleep
-from data import chain_data, bungee_contract_address, bungee_destinationChainId
+from utils import load_shuffled_keys, fetch_refuel_data, sleep
+from config import logger, explorer_base_url, token_symbol, origin, dest, origin_id, dest_id, destinationChainId, rpc, contract, abi
+from settings import *
 
 
-# Config | ethereum | optimism | bsc | gnosis | polygon |
-# zksync | zkevm | base | arbitrum  | avalanche | aurora
-FROM_CHAIN = "ethereum"
-TO_CHAIN = "zksync"
-
-# if True will use the MIN amount allowed for selected route
-# boosted by a small percentage up to MAX_BOOST value
-USE_MIN = True
-MAX_BOOST = 3  # 3%
-
-# Otherwise, specify the amount range in native token: ETH/BNB/AVAX/MATIC etc
-AMOUNT_FROM = 0.0013
-AMOUNT_TO = 0.0018
-
-# Sleep between wallets in seconds
-MIN_SLEEP = 30
-MAX_SLEEP = 60
-
-
-logger.add(
-    "debug.log",
-    format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
-    level="DEBUG",
-)
-
-# Connect to a node and inject the POA compatibility middleware for Avalanche, Polygon, BSC etc
-web3 = Web3(Web3.HTTPProvider(chain_data[FROM_CHAIN]["chain_rpc"]))
+# Connect to a node provider
+web3 = Web3(Web3.HTTPProvider(rpc))
+# inject the POA compatibility middleware for Avalanche, Polygon, BSC etc
 web3.middleware_onion.inject(geth_poa_middleware, layer=0)
-
-# Initialize the refuel contract and set global variables
-bungee_contract = web3.eth.contract(address=web3.to_checksum_address(bungee_contract_address[FROM_CHAIN]), abi=get_abi())
-destinationChainId = bungee_destinationChainId[TO_CHAIN]
-
-explorer_base_url = chain_data[FROM_CHAIN]["block_explorer"]
-token_symbol = chain_data[FROM_CHAIN]["native_asset"]
-origin = chain_data[FROM_CHAIN]["chain_name"]
-dest = chain_data[TO_CHAIN]["chain_name"]
-origin_id = chain_data[FROM_CHAIN]["chain_id"]
-dest_id = chain_data[TO_CHAIN]["chain_id"]
+# Initialize bungee refuel contract
+bungee_contract = web3.eth.contract(address=web3.to_checksum_address(contract), abi=abi)
 
 failed_wallets = []
 
@@ -78,17 +46,19 @@ def bungee_refuel(amount, private_key):
 
     try:
         # Build the transaction
-        tx = bungee_contract.functions.depositNativeToken(destinationChainId, wallet_address).build_transaction(
-            {"from": wallet_address, "value": amount, "nonce": nonce}
-        )
-
+        tx = bungee_contract.functions.depositNativeToken(destinationChainId, wallet_address).build_transaction({ 
+            "from": wallet_address, 
+            "value": amount, 
+            "nonce": nonce, 
+        })
+       
         # Fallback for Binance Smart Chain
         if FROM_CHAIN == "bsc":
             del tx["maxFeePerGas"]
             del tx["maxPriorityFeePerGas"]
             # set gas price to 1 gwei
             tx["gasPrice"] = 1000000000
-
+            
         # Sign and send the transaction
         signed_tx = web3.eth.account.sign_transaction(tx, private_key)
         tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
@@ -112,28 +82,31 @@ def bungee_refuel(amount, private_key):
 def main():
     try:
         keys_list = load_shuffled_keys()
+        keys_len = len(keys_list)
         min_amount, max_amount = get_chain_limits()
 
         try:
-            print("Press 'Enter' to continue or 'Ctrl + C' to exit")
+            print("Press Enter to continue or Ctrl + C to exit")
             input()
         except KeyboardInterrupt:
-            print("\nYou pressed Ctrl + C. Exiting...")
             return
 
         while keys_list:
             key = keys_list.pop(0)
-            logger.info(f"Wallet: {web3.eth.account.from_key(key).address}")
+            logger.info(f"Wallet [{keys_len - len(keys_list)}/{keys_len}]: {web3.eth.account.from_key(key).address}")
 
-            if USE_MIN:
-                percentage_increase = random.randint(1, MAX_BOOST)
-                amount = int(min_amount * (1 + percentage_increase / 100))
-            else:
+            random_delta = random.randint(1, MAX_DELTA)
+            
+            if MODE == 'min':
+                amount = int(min_amount * (1 + random_delta / 100))
+            if MODE == 'max':
+                amount = max_amount - int(max_amount * (random_delta / 100))
+            if MODE == 'exact':
                 amount = random.randint(web3.to_wei(AMOUNT_FROM, "ether"), web3.to_wei(AMOUNT_TO, "ether"))
 
             if amount < min_amount or amount > max_amount:
                 raise ValueError(
-                    f"Selected amount is outside of allowed range: {web3.from_wei(min_amount, 'ether')} to {web3.from_wei(max_amount, 'ether')} {token_symbol}\n"
+                    f"Selected value is outside min/max range: {web3.from_wei(min_amount, 'ether')} - {web3.from_wei(max_amount, 'ether')} {token_symbol}\n"
                 )
 
             success = bungee_refuel(amount, key)
@@ -142,7 +115,7 @@ def main():
                 sleep(MIN_SLEEP, MAX_SLEEP)
 
     except Exception as error:
-        logger.error(f"An error occurred: {str(error)}")
+        logger.error(f"{str(error)}")
 
     # Save the failed wallets to a CSV file
     if failed_wallets:

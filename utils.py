@@ -17,11 +17,6 @@ def load_shuffled_keys():
         return keys
 
 
-def get_abi(path="abi.json"):
-    with open(path, "r") as f:
-        return json.load(f)
-
-
 def fetch_refuel_data(*, update=False, json_cache, url="https://refuel.socket.tech/chains"):
     if update:
         json_data = None
