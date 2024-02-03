@@ -28,22 +28,20 @@ pip install web3 tqdm loguru
 
 Populate _keys.txt_ with your private keys, one key on each line
 
-Specify bridging params inside _main.py_
+Specify bridging params inside _settings.py_
 
 ```python
 FROM_CHAIN = "ethereum"
 TO_CHAIN = "zksync"
 
-# if True will use the MIN amount allowed for selected route
-# boosted by a small percentage up to MAX_BOOST value
-USE_MIN = True
+MODE = 'min' # min | max | exact
 MAX_BOOST = 3  # 3%
 
-# Otherwise, specify the amount range in native token: ETH/BNB/AVAX/MATIC etc
+# if mode == 'exact', specify the amount range in native token: ETH/BNB/AVAX/MATIC etc
 AMOUNT_FROM = 0.0013
 AMOUNT_TO = 0.0018
 
-# Sleep between wallets in seconds
+# Sleep between wallets in sec
 MIN_SLEEP = 30
 MAX_SLEEP = 60
 ```
