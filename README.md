@@ -30,7 +30,7 @@ Populate _keys.txt_ with your private keys, one key on each line
 
 Specify bridging params inside _settings.py_
 
-Run main.py
+Run _main.py_
 
 ```python
 python main.py

@@ -5,8 +5,8 @@ FROM_CHAIN = "ethereum"
 TO_CHAIN = "zksync"
 
 # choose refuel mode
-# 'min' for minimum alowed amount
-# 'max' for maximum alowed amount 
+# 'min' for minimum allowed amount
+# 'max' for maximum allowed amount 
 # 'exact' for an exact token amount
 # max percentage delta for min/max mode
 MODE = 'min'
