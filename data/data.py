@@ -80,14 +80,14 @@ chain_data = {
         "chain_id": 8453,
         "chain_name": "Base",
         "block_explorer": "https://basescan.org",
-        "chain_rpc": "https://rpc.ankr.com/base",
+        "chain_rpc": "https://mainnet.base.org",
         "native_asset": "ETH",
     },
     "arbitrum": {
         "chain_id": 42161,
         "chain_name": "Arbitrum",
         "block_explorer": "https://arbiscan.io",
-        "chain_rpc": "https://rpc.ankr.com/arbitrum",
+        "chain_rpc": "https://arb-mainnet.g.alchemy.com/v2/kFqpfk2-vL7z3lIHYV1kLehfNDynOSHW",
         "native_asset": "ETH",
     },
     "avalanche": {
