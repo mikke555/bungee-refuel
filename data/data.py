@@ -66,7 +66,7 @@ chain_data = {
         "chain_id": 324,
         "chain_name": "zkSync",
         "block_explorer": "https://explorer.zksync.io",
-        "chain_rpc": "https://zksync.drpc.org",
+        "chain_rpc": "https://zksync-era.blockpi.network/v1/rpc/public",
         "native_asset": "ETH",
     },
     "zkevm": {
