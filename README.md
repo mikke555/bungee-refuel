@@ -36,7 +36,6 @@ Run _main.py_
 python main.py
 ```
 
-On the first execution, min/max limits will be fetched from [https://refuel.socket.tech/chains](https://docs.socket.tech/socket-api/v2/guides/refuel-integration) and cached for subsequent usage.
-To refresh the data, simply delete _refuel.json_ file inside the project folder.
+Refuel's min/max limits are fetched from [https://refuel.socket.tech/chains](https://docs.socket.tech/socket-api/v2/guides/refuel-integration) and cached for 1 hour to avoid 429 Too Many Requests error. Adjust cache max age in _settings.py_ or simply delete _refuel.json_ file inside the project folder to refresh the data.
 
-Logs are availible inside _debug.log_
+Transaction logs are availible inside _debug.log_
