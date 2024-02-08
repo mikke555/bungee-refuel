@@ -9,7 +9,7 @@ from settings import *
 
 logger.remove()
 logger.add(stderr, format="<white>{time:HH:mm:ss}</white> | <level>{message}</level>")
-logger.add("debug.log", format="<white>{time:HH:mm:ss}</white> | <level>{message}</level>", level="DEBUG")
+logger.add("files/debug.log", format="<white>{time:HH:mm:ss}</white> | <level>{message}</level>", level="DEBUG")
 
 explorer_base_url = chain_data[FROM_CHAIN]["block_explorer"]
 token_symbol = chain_data[FROM_CHAIN]["native_asset"]
