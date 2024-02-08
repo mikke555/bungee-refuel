@@ -8,14 +8,16 @@ TO_CHAIN = "zksync"
 # 'min' for minimum allowed amount
 # 'max' for maximum allowed amount 
 # 'exact' for an exact token amount
-# max percentage delta for min/max mode
 MODE = 'min'
-MAX_DELTA = 3 # 3%
+MAX_BOOST = 3 # 3%
 
-# specify the amount range in 'exact' mode in native token: ETH / BNB / AVAX / MATIC etc
+# amount range in 'exact' mode in native token: ETH / BNB / AVAX / MATIC etc
 AMOUNT_FROM = 0.0013
 AMOUNT_TO = 0.0018
 
-# set the sleep duration between wallets in seconds
+# sleep duration between wallets in seconds
 MIN_SLEEP = 60
 MAX_SLEEP = 120
+
+# max age for json cache in hours
+CACHE_MAX_AGE = 1

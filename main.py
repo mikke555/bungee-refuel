@@ -4,7 +4,7 @@ from web3.middleware import geth_poa_middleware
 import random
 import csv
 
-from utils import load_shuffled_keys, fetch_refuel_data, sleep
+from utils import load_shuffled_keys, fetch_refuel_data, sleep, print_route_summary, calc_usd_amount
 from config import logger, explorer_base_url, token_symbol, origin, dest, origin_id, dest_id, destinationChainId, rpc, contract, abi
 from settings import *
 
@@ -29,36 +29,34 @@ def get_chain_limits():
                     is_enabled = bool(limit["isEnabled"])
                     min_amount = int(limit["minAmount"])
                     max_amount = int(limit["maxAmount"])
-
+                    
                     if not is_enabled:
                         raise ValueError("Refuel isn't supported for this route")
-
-                    print(
-                        f"{origin} => {dest} is allowed | min {web3.from_wei(min_amount, 'ether')} {token_symbol} | max {web3.from_wei(max_amount, 'ether')} {token_symbol}\n"
-                    )
-
+                    
                     return min_amount, max_amount
 
 
-def bungee_refuel(amount, private_key):
+def bungee_refuel(amount, private_key, token_price):
     wallet_address = web3.eth.account.from_key(private_key).address
     nonce = web3.eth.get_transaction_count(wallet_address)
+    
+    common_params = {
+        "from": wallet_address,
+        "value": amount,
+        "nonce": nonce,
+    }
 
+    if FROM_CHAIN == 'bsc':
+        tx_params = {**common_params, "gasPrice": 1000000000}
+    elif FROM_CHAIN == 'zksync':
+        tx_params = {**common_params, "maxPriorityFeePerGas": 0, "maxFeePerGas": 135000000}
+    else:
+        tx_params = common_params
+        
     try:
-        # Build the transaction
-        tx = bungee_contract.functions.depositNativeToken(destinationChainId, wallet_address).build_transaction({ 
-            "from": wallet_address, 
-            "value": amount, 
-            "nonce": nonce, 
-        })
-       
-        # Fallback for Binance Smart Chain
-        if FROM_CHAIN == "bsc":
-            del tx["maxFeePerGas"]
-            del tx["maxPriorityFeePerGas"]
-            # set gas price to 1 gwei
-            tx["gasPrice"] = 1000000000
-            
+        # Build the transaction dict
+        tx = bungee_contract.functions.depositNativeToken(destinationChainId, wallet_address).build_transaction(tx_params)  
+        
         # Sign and send the transaction
         signed_tx = web3.eth.account.sign_transaction(tx, private_key)
         tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
@@ -66,15 +64,20 @@ def bungee_refuel(amount, private_key):
 
         # Wait for the transaction to be mined
         tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash, timeout=400)
-
+        
         if tx_receipt.status:
-            logger.success(f"Tx confirmed: {origin}  => {dest} | {web3.from_wei(amount, 'ether')} {token_symbol}\n")
+            usd_amount_str = f' (${calc_usd_amount(token_price, amount)})' if token_price else ''
+            logger.success(
+                f'Tx confirmed: {origin} => {dest} | '
+                f'{amount / 10**18:.10f} {token_symbol}{usd_amount_str} \n',
+            )
             return True
         else:
             raise ValueError("Tx failed")
-
+        
+        
     except Exception as error:
-        logger.error(f"Wallet {wallet_address} | {error}\n")
+        logger.error(f'Wallet {wallet_address} | {error}\n')
         failed_wallets.append((wallet_address, private_key, error))
         return False
 
@@ -84,6 +87,8 @@ def main():
         keys_list = load_shuffled_keys()
         keys_len = len(keys_list)
         min_amount, max_amount = get_chain_limits()
+        
+        token_price = print_route_summary(origin, dest, min_amount, max_amount, token_symbol)
 
         try:
             print("Press Enter to continue or Ctrl + C to exit")
@@ -93,23 +98,24 @@ def main():
 
         while keys_list:
             key = keys_list.pop(0)
-            logger.info(f"Wallet [{keys_len - len(keys_list)}/{keys_len}]: {web3.eth.account.from_key(key).address}")
-
-            random_delta = random.randint(1, MAX_DELTA)
             
             if MODE == 'min':
-                amount = int(min_amount * (1 + random_delta / 100))
+                percentage_increase = random.randint(1, MAX_BOOST)
+                amount = int(min_amount * (1 + percentage_increase / 100))
             if MODE == 'max':
-                amount = max_amount - int(max_amount * (random_delta / 100))
+                amount = max_amount
             if MODE == 'exact':
                 amount = random.randint(web3.to_wei(AMOUNT_FROM, "ether"), web3.to_wei(AMOUNT_TO, "ether"))
 
             if amount < min_amount or amount > max_amount:
                 raise ValueError(
-                    f"Selected value is outside min/max range: {web3.from_wei(min_amount, 'ether')} - {web3.from_wei(max_amount, 'ether')} {token_symbol}\n"
+                    f"Selected value is outside min/max range: "
+                    f"{web3.from_wei(min_amount, 'ether')} - {web3.from_wei(max_amount, 'ether')} {token_symbol}",
+                    end="\n"
                 )
-
-            success = bungee_refuel(amount, key)
+             
+            logger.info(f"Wallet [{keys_len - len(keys_list)}/{keys_len}]: {web3.eth.account.from_key(key).address}")    
+            success = bungee_refuel(amount, key, token_price)
 
             if keys_list and success:
                 sleep(MIN_SLEEP, MAX_SLEEP)
@@ -119,7 +125,7 @@ def main():
 
     # Save the failed wallets to a CSV file
     if failed_wallets:
-        with open("failed_wallets.csv", "w", newline="") as csv_file:
+        with open("files/failed_wallets.csv", "w", newline="") as csv_file:
             writer = csv.writer(csv_file)
             writer.writerow(["Address", "Private Key", "Error"])
             writer.writerows(failed_wallets)
